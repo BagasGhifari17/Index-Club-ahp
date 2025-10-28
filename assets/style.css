@@ -1,0 +1,98 @@
+body {
+  background: linear-gradient(135deg, #041022, #0a1b35);
+  color: #e6eef6;
+  font-family: "Inter", sans-serif;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+main {
+  flex: 1;
+}
+.card {
+  background: rgba(255, 255, 255, 0.05);
+  border: none;
+  border-radius: 1rem;
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.3);
+}
+textarea,
+.form-control:disabled,
+.form-control {
+  background: rgba(255, 255, 255, 0.07);
+  color: #e6eef6;
+  border-color: rgba(255, 255, 255, 0.15);
+}
+textarea:focus,
+.form-control:focus {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: #06b6d4;
+  box-shadow: 0 0 0 0.25rem rgba(6, 182, 212, 0.25);
+  color: #e6eef6;
+}
+.btn-info {
+  background: linear-gradient(90deg, #06b6d4, #0ea5a3);
+  border: none;
+  color: #0a1b35 !important;
+  font-weight: 600;
+}
+.btn-info:hover {
+  filter: brightness(1.1);
+}
+.btn-outline-light:hover {
+  color: #0a1b35 !important;
+  background-color: #e6eef6;
+}
+
+/* Gaya baru untuk logo dan daftar hasil */
+.club-logo {
+  width: 30px; /* Ukuran logo */
+  height: 30px;
+  object-fit: contain; /* Agar gambar tidak terdistorsi */
+  margin-right: 10px;
+  border-radius: 50%; /* Jika ingin logo bulat */
+  vertical-align: middle;
+}
+
+.list-group-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+}
+
+.list-group-item div {
+  display: flex;
+  align-items: center;
+}
+
+.badge.bg-info {
+  background-color: #06b6d4 !important; /* Agar warnanya sama dengan tombol info */
+  color: #0a1b35;
+  padding: 0.5em 0.8em;
+}
+
+/* Menyesuaikan warna judul dan teks */
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
+  color: #d1e9f7;
+}
+.text-info {
+  color: #06b6d4 !important;
+}
+.text-secondary {
+  color: #aebfd5 !important;
+}
+.alert-danger {
+  color: #f8d7da;
+  background-color: #721c24;
+  border-color: #f5c6cb;
+}
+.alert-warning {
+  color: #fff3cd;
+  background-color: #856404;
+  border-color: #ffeeba;
+}
