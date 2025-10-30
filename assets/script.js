@@ -12,17 +12,19 @@ const RI = {
   10: 1.49,
 };
 
-// Objek untuk memetakan nama klub ke path logo
-// Sesuaikan nama file logo jika berbeda
+// Objek untuk memetakan nama klub ke logo (SVG placeholder)
 const CLUB_LOGOS = {
-  Barcelona: "assets/images/barcelona.png",
-  "Manchester City": "assets/images/manchestercity.png",
-  "Bayern Munich": "assets/images/bayernmunich.png",
-  Liverpool: "assets/images/liverpool.png",
-  // Tambahkan klub lain di sini jika Anda menggunakannya
+  Barcelona:
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23004D98'/%3E%3Ctext x='50' y='60' font-size='40' text-anchor='middle' fill='%23EDBB00'%3EB%3C/text%3E%3C/svg%3E",
+  "Manchester City":
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%236CABDD'/%3E%3Ctext x='50' y='60' font-size='35' text-anchor='middle' fill='white'%3EMC%3C/text%3E%3C/svg%3E",
+  "Bayern Munich":
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23DC052D'/%3E%3Ctext x='50' y='60' font-size='35' text-anchor='middle' fill='white'%3EBM%3C/text%3E%3C/svg%3E",
+  Liverpool:
+    "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23C8102E'/%3E%3Ctext x='50' y='60' font-size='40' text-anchor='middle' fill='white'%3EL%3C/text%3E%3C/svg%3E",
 };
 
-// Variabel global untuk menyimpan instance chart agar bisa dihancurkan (destroy)
+// Variabel global untuk chart
 let myChart = null;
 
 // --- Event Listeners ---
@@ -33,30 +35,66 @@ document
   .getElementById("btnReset")
   .addEventListener("click", () => location.reload());
 
-// --- Fungsi Pembuatan UI ---
+// --- Fungsi Update Progress Steps ---
+function updateSteps(activeStep) {
+  for (let i = 1; i <= 3; i++) {
+    const step = document.getElementById(`step${i}`);
+    step.classList.remove("active", "completed");
+    if (i < activeStep) step.classList.add("completed");
+    else if (i === activeStep) step.classList.add("active");
+  }
+}
 
-/**
- * Membangun semua tabel matriks perbandingan berdasarkan input pengguna.
- */
+// --- Fungsi Pembuatan UI ---
 function buildMatrices() {
   const crits = getLines("criteriaArea");
   const alts = getLines("altArea");
   const container = document.getElementById("critMatrices");
-  container.innerHTML = ""; // Bersihkan matriks sebelumnya
+  container.innerHTML = "";
 
   if (crits.length < 2 || alts.length < 2) {
     alert("Perlu minimal 2 kriteria dan 2 alternatif.");
     return;
   }
 
-  // Tabel kriteria
-  container.innerHTML += `<h5 class="text-info mt-3">Matriks Perbandingan Kriteria</h5><p class="text-secondary small">Seberapa penting setiap kriteria dibandingkan dengan kriteria lainnya?</p>`;
-  container.appendChild(makeTable(crits));
+  updateSteps(2);
 
-  // Tabel per kriteria
-  crits.forEach((c) => {
-    container.innerHTML += `<h6 class="text-light mt-4">Perbandingan Alternatif untuk Kriteria: <span class="text-info">${c}</span></h6><p class="text-secondary small">Manakah alternatif yang lebih baik berdasarkan kriteria ini?</p>`;
-    container.appendChild(makeTable(alts));
+  // Kriteria comparison card
+  const critCard = document.createElement("div");
+  critCard.className = "card p-4 mb-4 fade-in";
+  critCard.innerHTML = `
+    <div class="card-header">
+      <h5 class="mb-0">⚖️ Perbandingan Antar Kriteria</h5>
+      <p class="text-muted mb-0 mt-2">Bandingkan tingkat kepentingan setiap kriteria</p>
+    </div>
+    <div class="card-body">
+      <div class="comparison-table"></div>
+    </div>
+  `;
+  container.appendChild(critCard);
+  critCard.querySelector(".comparison-table").appendChild(makeTable(crits));
+
+  // Alternative comparison cards
+  crits.forEach((c, idx) => {
+    const altCard = document.createElement("div");
+    altCard.className = "criterion-card fade-in";
+    altCard.style.animationDelay = `${(idx + 1) * 0.1}s`;
+
+    const icons = ["🏆", "📊", "⚽", "🏢", "💰", "👥", "📈", "🎯"];
+    const icon = icons[idx % icons.length];
+
+    altCard.innerHTML = `
+      <div class="criterion-header">
+        <div class="criterion-icon">${icon}</div>
+        <div>
+          <h5 class="mb-1">${c}</h5>
+          <p class="text-muted mb-0 small">Bandingkan alternatif berdasarkan kriteria ini</p>
+        </div>
+      </div>
+      <div class="comparison-table"></div>
+    `;
+    container.appendChild(altCard);
+    altCard.querySelector(".comparison-table").appendChild(makeTable(alts));
   });
 
   document.getElementById("questionArea").classList.remove("d-none");
@@ -64,45 +102,32 @@ function buildMatrices() {
   container.scrollIntoView({ behavior: "smooth" });
 }
 
-/**
- * Helper untuk mengambil teks dari textarea dan mengubahnya menjadi array.
- * @param {string} id - ID elemen textarea.
- * @returns {string[]} - Array dari baris teks.
- */
 function getLines(id) {
   return document
     .getElementById(id)
     .value.split("\n")
     .map((v) => v.trim())
-    .filter(Boolean); // Menghapus baris kosong
+    .filter(Boolean);
 }
 
-/**
- * Membuat elemen <table> untuk matriks perbandingan.
- * @param {string[]} names - Nama-nama kriteria atau alternatif.
- * @returns {HTMLTableElement} - Elemen tabel yang sudah jadi.
- */
 function makeTable(names) {
   const table = document.createElement("table");
-  table.className = "table table-sm table-dark align-middle";
+  table.className = "table table-sm table-hover align-middle mb-0";
   const n = names.length;
   let html = "<thead><tr><th></th>";
-  names.forEach((nm) => (html += `<th>${nm}</th>`));
+  names.forEach((nm) => (html += `<th class="text-center">${nm}</th>`));
   html += "</tr></thead><tbody>";
 
   for (let i = 0; i < n; i++) {
     html += `<tr><th>${names[i]}</th>`;
     for (let j = 0; j < n; j++) {
       if (i === j) {
-        // Diagonal
         html +=
-          '<td><input type="number" class="form-control form-control-sm text-center" disabled value="1"></td>';
+          '<td><input type="number" class="form-control form-control-sm" disabled value="1"></td>';
       } else if (j > i) {
-        // Input manual (segitiga atas)
-        html += `<td><input type="number" step="any" min="0.111" max="9" value="1" class="form-control form-control-sm text-center pair" data-i="${i}" data-j="${j}"></td>`;
+        html += `<td><input type="number" step="any" min="0.111" max="9" value="1" class="form-control form-control-sm pair" data-i="${i}" data-j="${j}"></td>`;
       } else {
-        // Resiprokal (segitiga bawah)
-        html += `<td><input type="number" class="form-control form-control-sm text-center recip" disabled data-i="${i}" data-j="${j}" value="1"></td>`;
+        html += `<td><input type="number" class="form-control form-control-sm recip" disabled data-i="${i}" data-j="${j}" value="1"></td>`;
       }
     }
     html += "</tr>";
@@ -110,205 +135,161 @@ function makeTable(names) {
   html += "</tbody>";
   table.innerHTML = html;
 
-  // Tambahkan event listener untuk mengupdate nilai resiprokal secara otomatis
   table.querySelectorAll(".pair").forEach((inp) => {
     inp.addEventListener("input", (e) => {
       const v = parseFloat(e.target.value) || 1;
       const i = e.target.dataset.i,
         j = e.target.dataset.j;
       const recip = table.querySelector(`.recip[data-i='${j}'][data-j='${i}']`);
-      if (recip) recip.value = (1 / v).toFixed(3);
+      if (recip) recip.value = (Math.round((1 / v) * 1000) / 1000).toFixed(3);
     });
   });
   return table;
 }
 
-/**
- * Mengisi data contoh untuk demonstrasi.
- */
 function fillExample() {
   document.getElementById("criteriaArea").value = `Prestasi dan Gelar
 Konsistensi Performa
 Kualitas Pemain dan Filosofi Permainan
 Manajemen dan Infrastruktur Klub`;
-
   document.getElementById("altArea").value = `Barcelona
 Manchester City
 Bayern Munich
 Liverpool`;
+  buildMatrices();
 
-  buildMatrices(); // Bangun tabel terlebih dahulu
-
-  // Ambil semua tabel yang baru dibuat
   const allTables = document.querySelectorAll("#critMatrices table");
-
-  // Data contoh untuk Matriks Kriteria
-  // (C1vC2=2, C1vC3=4, C1vC4=3, C2vC3=2, C2vC4=1, C3vC4=0.5)
-  const critValues = [2, 4, 3, 2, 1, 0.5];
-  fillTableInputs(allTables[0], critValues);
-
-  // Data contoh untuk "Prestasi"
-  // (A1vA2=0.5, A1vA3=0.33, A1vA4=1, A2vA3=0.5, A2vA4=2, A3vA4=3)
-  const alt1Values = [0.5, 0.333, 1, 0.5, 2, 3];
-  fillTableInputs(allTables[1], alt1Values);
-
-  // Data contoh untuk "Konsistensi"
-  // (A1vA2=0.33, A1vA3=0.5, A1vA4=0.5, A2vA3=2, A2vA4=2, A3vA4=1)
-  const alt2Values = [0.333, 0.5, 0.5, 2, 2, 1];
-  fillTableInputs(allTables[2], alt2Values);
-
-  // Data contoh untuk "Kualitas Pemain"
-  // (A1vA2=0.5, A1vA3=1, A1vA4=1, A2vA3=3, A2vA4=2, A3vA4=1)
-  const alt3Values = [0.5, 1, 1, 3, 2, 1];
-  fillTableInputs(allTables[3], alt3Values);
-
-  // Data contoh untuk "Manajemen"
-  // (A1vA2=0.33, A1vA3=0.5, A1vA4=1, A2vA3=2, A2vA4=3, A3vA4=2)
-  const alt4Values = [0.333, 0.5, 1, 2, 3, 2];
-  fillTableInputs(allTables[4], alt4Values);
+  fillTableInputs(allTables[0], [2, 4, 3, 2, 1, 0.5]);
+  fillTableInputs(allTables[1], [0.5, 0.333, 1, 0.5, 2, 3]);
+  fillTableInputs(allTables[2], [0.333, 0.5, 0.5, 2, 2, 1]);
+  fillTableInputs(allTables[3], [0.5, 1, 1, 3, 2, 1]);
+  fillTableInputs(allTables[4], [0.333, 0.5, 1, 2, 3, 2]);
 }
 
-/**
- * Helper untuk mengisi input dalam tabel dengan data contoh.
- * @param {HTMLTableElement} table - Elemen tabel yang akan diisi.
- * @param {number[]} values - Array nilai untuk diisikan.
- */
 function fillTableInputs(table, values) {
   const inputs = table.querySelectorAll(".pair");
   inputs.forEach((input, i) => {
     if (values[i] !== undefined) {
       input.value = values[i];
-      // Triger event 'input' agar nilai resiprokal juga terupdate
-      input.dispatchEvent(new Event("input"));
+      input.dispatchEvent(new Event("change"));
     }
   });
 }
 
 // --- Fungsi Logika AHP ---
-
-/**
- * Fungsi utama untuk menjalankan seluruh perhitungan AHP.
- */
 function computeAHP() {
   const allTables = document.querySelectorAll("#critMatrices table");
   const resultArea = document.getElementById("resultArea");
   const summaryDiv = document.getElementById("summary");
-  summaryDiv.innerHTML = ""; // Bersihkan hasil sebelumnya
+  summaryDiv.innerHTML = "";
 
   const critNames = getLines("criteriaArea");
   const altNames = getLines("altArea");
   let allConsistent = true;
 
-  // Validasi jumlah tabel
   if (allTables.length !== critNames.length + 1) {
-    alert(
-      "Jumlah matriks perbandingan tidak sesuai dengan jumlah kriteria. Pastikan Anda sudah 'Buat Matriks' kembali setelah mengubah daftar kriteria/alternatif."
-    );
+    alert("Jumlah matriks tidak sesuai. Silakan buat matriks kembali.");
     return;
   }
 
-  // 1. Proses Matriks Kriteria
+  updateSteps(3);
+
+  // Process criteria
   const critAnalysis = processMatrix(allTables[0], critNames);
-  summaryDiv.innerHTML += "<h5>Bobot Kriteria</h5>";
-  summaryDiv.innerHTML += renderAnalysis(critAnalysis);
+  summaryDiv.innerHTML += `
+    <div class="card p-4 mb-4 fade-in">
+      <h5 class="text-info mb-3">📊 Bobot Kriteria</h5>
+      ${renderAnalysis(critAnalysis)}
+    </div>
+  `;
+
   if (!critAnalysis.isConsistent) {
-    summaryDiv.innerHTML += `<div class="alert alert-danger mt-2"><b>Peringatan:</b> Matriks perbandingan kriteria TIDAK KONSISTEN (CR > 0.10). Harap perbaiki nilai perbandingan Anda untuk hasil yang akurat.</div>`;
+    summaryDiv.innerHTML += `<div class="alert alert-danger fade-in"><strong>⚠️ Peringatan:</strong> Matriks kriteria tidak konsisten (CR > 0.10). Perbaiki nilai perbandingan untuk hasil akurat.</div>`;
     allConsistent = false;
   }
-  const critWeights = critAnalysis.weights; // [Crit x 1]
 
-  // 2. Proses Matriks Alternatif (satu per satu)
+  const critWeights = critAnalysis.weights;
+
+  // Process alternatives
   let altWeightsPerCrit = [];
-  summaryDiv.innerHTML += "<hr><h5>Analisis Alternatif per Kriteria</h5>";
+  summaryDiv.innerHTML += `<div class="card p-4 mb-4 fade-in"><h5 class="text-info mb-3">⚽ Analisis Alternatif per Kriteria</h5>`;
 
   for (let i = 0; i < critNames.length; i++) {
-    const altTable = allTables[i + 1]; // +1 untuk melewati tabel kriteria
-    const altAnalysis = processMatrix(altTable, altNames);
-
-    summaryDiv.innerHTML += `<h6 class="mt-3">Berdasarkan: ${critNames[i]}</h6>`;
-    summaryDiv.innerHTML += renderAnalysis(altAnalysis);
+    const altAnalysis = processMatrix(allTables[i + 1], altNames);
+    summaryDiv.innerHTML += `<h6 class="mt-3">${
+      critNames[i]
+    }</h6>${renderAnalysis(altAnalysis)}`;
     if (!altAnalysis.isConsistent) {
-      summaryDiv.innerHTML += `<div class="alert alert-warning mt-2 small">Matriks untuk '${critNames[i]}' tidak konsisten (CR > 0.10).</div>`;
+      summaryDiv.innerHTML += `<div class="alert alert-warning mt-2 small fade-in">Matriks '${critNames[i]}' tidak konsisten.</div>`;
       allConsistent = false;
     }
     altWeightsPerCrit.push(altAnalysis.weights);
   }
+  summaryDiv.innerHTML += `</div>`;
 
-  if (!allConsistent) {
-    summaryDiv.innerHTML += `<hr><div class="alert alert-danger"><b>Peringatan Global:</b> Satu atau lebih matriks tidak konsisten. Hasil akhir mungkin tidak dapat diandalkan.</div>`;
-  }
-
-  // 3. Sintesis Hasil Akhir
-  // Kita punya bobot kriteria [Crit x 1]
-  // Kita punya bobot alternatif [Crit x Alt]
-  // Kita perlu [Alt x Crit] untuk dikalikan.
-  const altWeightsMatrix = transpose(altWeightsPerCrit); // [Alt x Crit]
-
-  // Kalikan [Alt x Crit] * [Crit x 1] = [Alt x 1]
+  // Final synthesis
+  const altWeightsMatrix = transpose(altWeightsPerCrit);
   const finalScores = matrixMultiply(altWeightsMatrix, critWeights);
 
-  // 4. Format dan Tampilkan Hasil
   const finalResults = altNames
     .map((name, index) => ({
       name: name,
       score: finalScores[index],
     }))
-    .sort((a, b) => b.score - a.score); // Urutkan dari skor tertinggi
+    .sort((a, b) => b.score - a.score);
 
-  summaryDiv.innerHTML +=
-    "<hr><h3 class='text-info'>🏆 Hasil Akhir Peringkat</h3>";
-  let rankHtml = '<ul class="list-group list-group-flush">';
+  summaryDiv.innerHTML += `
+    <div class="card p-4 fade-in">
+      <h3 class="text-info mb-4">🏆 Hasil Akhir Peringkat</h3>
+      <ul class="list-group list-group-flush">
+  `;
+
   finalResults.forEach((res, index) => {
-    // Dapatkan URL logo, fallback ke placeholder jika tidak ditemukan
     const logoSrc =
       CLUB_LOGOS[res.name] ||
-      "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs="; // Placeholder transparan
-    const logoAlt = `${res.name} Logo`;
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2394a3b8'/%3E%3C/svg%3E";
+    const medals = ["🥇", "🥈", "🥉"];
+    const medal = medals[index] || "🏅";
+    const scorePercent = (res.score * 100).toFixed(2);
 
-    rankHtml += `<li class="list-group-item">
+    summaryDiv.innerHTML += `
+      <li class="list-group-item">
         <div>
-          <span class="fw-bold fs-5 me-2">${index + 1}.</span>
-          <img src="${logoSrc}" alt="${logoAlt}" class="club-logo">
-          <span>${res.name}</span>
+          <span class="fw-bold fs-4 me-3">${medal}</span>
+          <img src="${logoSrc}" alt="${res.name}" class="club-logo">
+          <span class="fs-5">${res.name}</span>
         </div>
-        <span class="badge bg-info rounded-pill fs-6">${(
-          res.score * 100
-        ).toFixed(2)}%</span>
-      </li>`;
+        <span class="badge bg-info fs-6">${scorePercent}%</span>
+      </li>
+    `;
   });
-  rankHtml += "</ul>";
-  summaryDiv.innerHTML += rankHtml;
 
-  // 5. Tampilkan Chart
+  summaryDiv.innerHTML += `</ul></div>`;
+
   drawChart(finalResults);
-
   resultArea.classList.remove("d-none");
   resultArea.scrollIntoView({ behavior: "smooth" });
 }
 
-/**
- * Memproses satu matriks perbandingan untuk mendapatkan bobot dan rasio konsistensi.
- * @param {HTMLTableElement} tableElement - Elemen tabel yang akan diproses.
- * @param {string[]} names - Nama item (kriteria/alternatif).
- * @returns {object} - Objek berisi bobot, CR, CI, dll.
- */
 function processMatrix(tableElement, names) {
   const n = names.length;
-
-  // 1. Baca nilai dari tabel ke matriks 2D
   const matrix = [];
   const rows = tableElement.querySelectorAll("tbody tr");
   rows.forEach((tr) => {
-    const inputs = tr.querySelectorAll("input");
     const rowValues = [];
-    inputs.forEach((input) => {
-      rowValues.push(parseFloat(input.value));
+    const cells = tr.querySelectorAll("td");
+    cells.forEach((cell) => {
+      const input = cell.querySelector("input");
+      const select = cell.querySelector("select");
+      if (input) {
+        rowValues.push(parseFloat(input.value) || 1);
+      } else if (select) {
+        rowValues.push(parseFloat(select.value) || 1);
+      }
     });
     matrix.push(rowValues);
   });
 
-  // 2. Normalisasi matriks (Metode Eigenvector Perkiraan)
-  // a. Hitung jumlah setiap kolom
   const colSums = new Array(n).fill(0);
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
@@ -316,97 +297,114 @@ function processMatrix(tableElement, names) {
     }
   }
 
-  // Tangani kasus pembagian nol jika ada kolom yang jumlahnya nol
   const normalizedMatrix = matrix.map((row) =>
     row.map((cell, j) => (colSums[j] === 0 ? 0 : cell / colSums[j]))
   );
 
-  // 3. Hitung Vektor Prioritas (Bobot)
-  // Rata-rata setiap baris dari matriks yang dinormalisasi
   const weights = normalizedMatrix.map(
     (row) => row.reduce((acc, val) => acc + val, 0) / n
   );
 
-  // 4. Hitung Rasio Konsistensi (CR)
-  // a. Hitung (Matriks Awal * Vektor Bobot)
   const weightedSumVector = matrixMultiply(matrix, weights);
-
-  // b. Hitung (WeightedSumVector / Vektor Bobot)
   const lambdaValues = weightedSumVector.map((val, i) =>
     weights[i] === 0 ? 0 : val / weights[i]
-  ); // Handle division by zero
-
-  // c. Hitung Lambda-max (rata-rata dari lambdaValues)
+  );
   const lambdaMax = lambdaValues.reduce((acc, val) => acc + val, 0) / n;
-
-  // d. Hitung Consistency Index (CI)
   const CI = n <= 2 ? 0 : (lambdaMax - n) / (n - 1);
-
-  // e. Ambil Random Index (RI)
-  const RIn = RI[n] || 0.0; // Gunakan 0.0 jika n tidak ada di RI (misal n > 10, atau n=0)
-
-  // f. Hitung Consistency Ratio (CR)
-  const CR = n <= 2 || RIn === 0 ? 0 : CI / RIn; // Handle division by zero for RIn
+  const RIn = RI[n] || 0.0;
+  const CR = n <= 2 || RIn === 0 ? 0 : CI / RIn;
 
   return {
     weights: weights,
     lambdaMax: lambdaMax,
     CI: CI,
     CR: CR,
-    isConsistent: CR <= 0.1 || n <= 2, // Matriks 1x1 atau 2x2 selalu konsisten
+    isConsistent: CR <= 0.1 || n <= 2,
     names: names,
   };
 }
 
-/**
- * Menampilkan hasil analisis (bobot dan CR) dalam format tabel HTML.
- * @param {object} analysis - Objek hasil dari processMatrix.
- * @returns {string} - String HTML tabel.
- */
 function renderAnalysis(analysis) {
-  let html = `<table class="table table-sm table-dark table-bordered" style="font-size: 0.9em;">
-        <thead><tr><th>Item</th><th>Bobot (Prioritas)</th></tr></thead>
-        <tbody>`;
+  let html = `
+    <div class="table-responsive">
+      <table class="table table-sm table-hover mb-3" style="font-size: 0.95em;">
+        <thead>
+          <tr>
+            <th>Item</th>
+            <th class="text-end">Bobot (Prioritas)</th>
+            <th class="text-end">Persentase</th>
+          </tr>
+        </thead>
+        <tbody>
+  `;
+
   analysis.names.forEach((name, i) => {
-    html += `<tr>
-            <td>${name}</td>
-            <td>${analysis.weights[i].toFixed(4)}</td>
-        </tr>`;
+    const percentage = (analysis.weights[i] * 100).toFixed(2);
+    html += `
+      <tr>
+        <td><strong>${name}</strong></td>
+        <td class="text-end">${analysis.weights[i].toFixed(4)}</td>
+        <td class="text-end">
+          <span class="badge" style="background: linear-gradient(90deg, rgba(6,182,212,0.3) ${percentage}%, transparent ${percentage}%); color: #06b6d4; min-width: 80px;">
+            ${percentage}%
+          </span>
+        </td>
+      </tr>
+    `;
   });
-  html += `</tbody><tfoot class="text-secondary" style="font-size: 0.85em;">
-        <tr>
-            <td>&lambda;<sub>max</sub></td>
-            <td>${analysis.lambdaMax.toFixed(4)}</td>
-        </tr>
-        <tr>
-            <td>CI</td>
-            <td>${analysis.CI.toFixed(4)}</td>
-        </tr>
-        <tr class="${
-          analysis.isConsistent ? "text-success" : "text-danger" // Gunakan text-success/danger langsung, bukan -emphasis
-        } fw-bold">
-            <td>CR (Ratio)</td>
-            <td>${analysis.CR.toFixed(4)} (${
-    analysis.isConsistent ? "Konsisten" : "TIDAK KONSISTEN"
-  })</td>
-        </tr>
-    </tfoot></table>`;
+
+  html += `
+        </tbody>
+      </table>
+    </div>
+    <div class="row text-center" style="font-size: 0.9em;">
+      <div class="col-md-4">
+        <div class="p-3" style="background: rgba(6,182,212,0.1); border-radius: 0.5rem;">
+          <div class="text-muted small">λ max</div>
+          <div class="fw-bold text-info fs-5">${analysis.lambdaMax.toFixed(
+            4
+          )}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3" style="background: rgba(6,182,212,0.1); border-radius: 0.5rem;">
+          <div class="text-muted small">CI</div>
+          <div class="fw-bold text-info fs-5">${analysis.CI.toFixed(4)}</div>
+        </div>
+      </div>
+      <div class="col-md-4">
+        <div class="p-3" style="background: ${
+          analysis.isConsistent ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"
+        }; border-radius: 0.5rem;">
+          <div class="text-muted small">CR (Consistency Ratio)</div>
+          <div class="fw-bold fs-5" style="color: ${
+            analysis.isConsistent ? "#10b981" : "#ef4444"
+          };">
+            ${analysis.CR.toFixed(4)}
+          </div>
+          <div class="small mt-1">
+            ${analysis.isConsistent ? "✓ Konsisten" : "✗ Tidak Konsisten"}
+          </div>
+        </div>
+      </div>
+    </div>
+  `;
   return html;
 }
 
-/**
- * Menggambar chart batang horizontal menggunakan Chart.js.
- * @param {object[]} results - Array objek hasil akhir {name, score}.
- */
 function drawChart(results) {
   const ctx = document.getElementById("chartResult").getContext("2d");
   const labels = results.map((r) => r.name);
   const data = results.map((r) => r.score);
 
-  // Hancurkan chart sebelumnya jika ada
-  if (myChart) {
-    myChart.destroy();
-  }
+  if (myChart) myChart.destroy();
+
+  const colors = [
+    "rgba(6, 182, 212, 0.8)",
+    "rgba(16, 185, 129, 0.8)",
+    "rgba(245, 158, 11, 0.8)",
+    "rgba(139, 92, 246, 0.8)",
+  ];
 
   myChart = new Chart(ctx, {
     type: "bar",
@@ -416,49 +414,46 @@ function drawChart(results) {
         {
           label: "Skor Akhir",
           data: data,
-          backgroundColor: [
-            "rgba(6, 182, 212, 0.7)",
-            "rgba(14, 165, 163, 0.7)",
-            "rgba(13, 148, 136, 0.7)",
-            "rgba(15, 118, 110, 0.7)",
-          ],
-          borderColor: ["#06b6d4", "#0ea5a3", "#0d9488", "#0f766e"],
-          borderWidth: 1,
+          backgroundColor: colors,
+          borderColor: colors.map((c) => c.replace("0.8", "1")),
+          borderWidth: 2,
+          borderRadius: 8,
         },
       ],
     },
     options: {
-      indexAxis: "y", // Membuat chart menjadi horizontal
+      indexAxis: "y",
       responsive: true,
-      maintainAspectRatio: false, // Penting untuk mengontrol tinggi
-      height: 400, // Misalnya, atur tinggi chart
+      maintainAspectRatio: false,
       scales: {
         x: {
           beginAtZero: true,
-          ticks: { color: "#e6eef6" },
-          grid: { color: "rgba(255, 255, 255, 0.1)" },
-          max: 1, // Agar sumbu X dari 0 sampai 1 (untuk persentase)
+          max: Math.max(...data) * 1.1,
+          ticks: {
+            color: "#94a3b8",
+            callback: function (value) {
+              return (value * 100).toFixed(0) + "%";
+            },
+          },
+          grid: { color: "rgba(148, 163, 184, 0.1)" },
         },
         y: {
-          ticks: { color: "#e6eef6" },
+          ticks: { color: "#e2e8f0", font: { size: 14, weight: "bold" } },
           grid: { display: false },
         },
       },
       plugins: {
-        legend: {
-          display: false, // Sembunyikan legenda
-        },
+        legend: { display: false },
         tooltip: {
+          backgroundColor: "rgba(15, 23, 42, 0.9)",
+          titleColor: "#06b6d4",
+          bodyColor: "#e2e8f0",
+          borderColor: "rgba(6, 182, 212, 0.5)",
+          borderWidth: 1,
+          padding: 12,
           callbacks: {
             label: function (context) {
-              let label = context.dataset.label || "";
-              if (label) {
-                label += ": ";
-              }
-              if (context.parsed.x !== null) {
-                label += (context.parsed.x * 100).toFixed(2) + "%";
-              }
-              return label;
+              return "Skor: " + (context.parsed.x * 100).toFixed(2) + "%";
             },
           },
         },
@@ -468,13 +463,6 @@ function drawChart(results) {
 }
 
 // --- Helper Utilitas Matematika ---
-
-/**
- * Mengalikan Matriks A [n x m] dengan Vektor B [m x 1].
- * @param {number[][]} matrixA - Matriks 2D.
- * @param {number[]} vectorB - Vektor (array 1D).
- * @returns {number[]} - Vektor hasil [n x 1].
- */
 function matrixMultiply(matrixA, vectorB) {
   const A_rows = matrixA.length;
   const A_cols = matrixA[0].length;
@@ -486,7 +474,6 @@ function matrixMultiply(matrixA, vectorB) {
   }
 
   const resultVector = new Array(A_rows).fill(0);
-
   for (let i = 0; i < A_rows; i++) {
     for (let j = 0; j < A_cols; j++) {
       resultVector[i] += matrixA[i][j] * vectorB[j];
@@ -495,22 +482,15 @@ function matrixMultiply(matrixA, vectorB) {
   return resultVector;
 }
 
-/**
- * Mentransposisi matriks 2D (mengubah baris menjadi kolom).
- * @param {number[][]} matrix - Matriks yang akan ditransposisi.
- * @returns {number[][]} - Matriks baru yang sudah ditransposisi.
- */
 function transpose(matrix) {
   if (!matrix || matrix.length === 0) return [];
-  // Pastikan baris memiliki panjang yang sama untuk mencegah error
   const numRows = matrix.length;
   const numCols = matrix[0] ? matrix[0].length : 0;
-  if (numCols === 0) return []; // Matriks kosong
+  if (numCols === 0) return [];
 
   const transposed = Array(numCols)
     .fill(0)
     .map(() => Array(numRows).fill(0));
-
   for (let i = 0; i < numRows; i++) {
     for (let j = 0; j < numCols; j++) {
       transposed[j][i] = matrix[i][j];
