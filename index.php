@@ -17,8 +17,14 @@
         ⚽ AHP Football Ranking
       </a>
       <div>
+        <button id="btnHistory" class="btn btn-outline-info btn-sm me-2 position-relative">
+          📜 Riwayat
+          <span id="historyBadge" class="position-absolute top-0 start-100 translate-middle badge rounded-pill bg-danger d-none">
+            0
+          </span>
+        </button>
         <button id="btnExample" class="btn btn-outline-light btn-sm me-2">
-          📋 Gunakan Contoh
+          📋 Contoh
         </button>
         <button id="btnReset" class="btn btn-light btn-sm">
           🔄 Reset
@@ -28,6 +34,29 @@
   </nav>
 
   <main class="container">
+    <!-- History Panel (Sidebar) -->
+    <div id="historyPanel" class="history-panel d-none">
+      <div class="history-panel-header">
+        <h5 class="mb-0">📜 Riwayat Perhitungan</h5>
+        <button class="btn-close btn-close-white" onclick="toggleHistory()"></button>
+      </div>
+      <div class="history-panel-body">
+        <div id="emptyHistory" class="text-center text-muted py-5">
+          <div style="font-size: 4rem; opacity: 0.3;">📭</div>
+          <p class="mb-0">Belum ada riwayat</p>
+          <small>Hasil perhitungan akan tersimpan otomatis</small>
+        </div>
+        <div id="historyList"></div>
+      </div>
+      <div class="history-panel-footer">
+        <button id="btnExportHistory" class="btn btn-sm btn-outline-success w-100 mb-2">
+          💾 Ekspor Riwayat (JSON)
+        </button>
+        <button id="btnClearHistory" class="btn btn-sm btn-outline-danger w-100">
+          🗑️ Hapus Semua Riwayat
+        </button>
+      </div>
+    </div>
     <!-- Progress Steps -->
     <div class="progress-steps">
       <div class="step active" id="step1">

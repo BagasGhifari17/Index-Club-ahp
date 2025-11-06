@@ -1,4 +1,8 @@
-// Rasio Indeks Acak (Random Index) untuk pengecekan konsistensi
+// ============================================
+// AHP Football Ranking - Enhanced JavaScript
+// ============================================
+
+// --- CONSTANTS ---
 const RI = {
   1: 0.0,
   2: 0.0,
@@ -12,7 +16,6 @@ const RI = {
   10: 1.49,
 };
 
-// Objek untuk memetakan nama klub ke logo (SVG placeholder)
 const CLUB_LOGOS = {
   Barcelona:
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23004D98'/%3E%3Ctext x='50' y='60' font-size='40' text-anchor='middle' fill='%23EDBB00'%3EB%3C/text%3E%3C/svg%3E",
@@ -24,28 +27,352 @@ const CLUB_LOGOS = {
     "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%23C8102E'/%3E%3Ctext x='50' y='60' font-size='40' text-anchor='middle' fill='white'%3EL%3C/text%3E%3C/svg%3E",
 };
 
-// Variabel global untuk chart
+// --- GLOBAL VARIABLES ---
 let myChart = null;
+let calculationHistory = [];
 
-// --- Event Listeners ---
+// --- INITIALIZATION ---
+document.addEventListener("DOMContentLoaded", function () {
+  loadHistoryFromStorage();
+  updateHistoryDisplay();
+  updateHistoryBadge();
+});
+
+// --- EVENT LISTENERS ---
 document.getElementById("buildBtn").addEventListener("click", buildMatrices);
 document.getElementById("computeBtn").addEventListener("click", computeAHP);
 document.getElementById("btnExample").addEventListener("click", fillExample);
+document.getElementById("btnReset").addEventListener("click", () => {
+  if (confirm("Reset aplikasi? Data yang belum disimpan akan hilang.")) {
+    location.reload();
+  }
+});
+document.getElementById("btnHistory").addEventListener("click", toggleHistory);
 document
-  .getElementById("btnReset")
-  .addEventListener("click", () => location.reload());
+  .getElementById("btnClearHistory")
+  .addEventListener("click", clearHistory);
+document
+  .getElementById("btnExportHistory")
+  .addEventListener("click", exportHistory);
 
-// --- Fungsi Update Progress Steps ---
-function updateSteps(activeStep) {
-  for (let i = 1; i <= 3; i++) {
-    const step = document.getElementById(`step${i}`);
-    step.classList.remove("active", "completed");
-    if (i < activeStep) step.classList.add("completed");
-    else if (i === activeStep) step.classList.add("active");
+// ============================================
+// HISTORY MANAGEMENT FUNCTIONS
+// ============================================
+
+function loadHistoryFromStorage() {
+  try {
+    const stored = localStorage.getItem("ahpHistory");
+    if (stored) {
+      calculationHistory = JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error("Error loading history:", e);
+    calculationHistory = [];
   }
 }
 
-// --- Fungsi Pembuatan UI ---
+function saveHistoryToStorage() {
+  try {
+    localStorage.setItem("ahpHistory", JSON.stringify(calculationHistory));
+    updateHistoryBadge();
+  } catch (e) {
+    console.error("Error saving history:", e);
+  }
+}
+
+function updateHistoryBadge() {
+  const badge = document.getElementById("historyBadge");
+  const count = calculationHistory.length;
+  if (count > 0) {
+    badge.textContent = count;
+    badge.classList.remove("d-none");
+  } else {
+    badge.classList.add("d-none");
+  }
+}
+
+function addToHistory(data) {
+  const historyItem = {
+    id: Date.now(),
+    timestamp: new Date().toISOString(),
+    criteria: data.criteria,
+    alternatives: data.alternatives,
+    results: data.results,
+    critWeights: data.critWeights,
+    isConsistent: data.isConsistent,
+  };
+
+  calculationHistory.unshift(historyItem);
+
+  if (calculationHistory.length > 20) {
+    calculationHistory = calculationHistory.slice(0, 20);
+  }
+
+  saveHistoryToStorage();
+  updateHistoryDisplay();
+  showNotification("✅ Hasil tersimpan ke riwayat!");
+}
+
+function updateHistoryDisplay() {
+  const historyList = document.getElementById("historyList");
+  const emptyState = document.getElementById("emptyHistory");
+
+  if (calculationHistory.length === 0) {
+    emptyState.classList.remove("d-none");
+    historyList.innerHTML = "";
+    return;
+  }
+
+  emptyState.classList.add("d-none");
+  historyList.innerHTML = "";
+
+  calculationHistory.forEach((item, index) => {
+    const date = new Date(item.timestamp);
+    const dateStr = date.toLocaleString("id-ID", {
+      day: "2-digit",
+      month: "short",
+      year: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+    });
+
+    const consistencyBadge = item.isConsistent
+      ? '<span class="badge bg-success">✓ Konsisten</span>'
+      : '<span class="badge bg-danger">✗ Tidak Konsisten</span>';
+
+    const topResult = item.results[0];
+    const scorePercent = (topResult.score * 100).toFixed(2);
+
+    const historyCard = document.createElement("div");
+    historyCard.className = "history-item";
+    historyCard.innerHTML = `
+      <div class="history-header">
+        <div>
+          <span class="history-number">#${index + 1}</span>
+          <span class="history-date">${dateStr}</span>
+        </div>
+        <div>
+          ${consistencyBadge}
+        </div>
+      </div>
+      <div class="history-body">
+        <div class="mb-2">
+          <strong>🏆 Pemenang:</strong> 
+          <span class="text-info">${topResult.name}</span>
+          <span class="badge bg-info ms-2">${scorePercent}%</span>
+        </div>
+        <div class="small text-muted mb-1">
+          <strong>📊 Kriteria (${item.criteria.length}):</strong><br>
+          ${item.criteria
+            .map(
+              (c) => `<span class="badge bg-secondary me-1 mb-1">${c}</span>`
+            )
+            .join("")}
+        </div>
+        <div class="small text-muted mb-2">
+          <strong>⚽ Alternatif (${item.alternatives.length}):</strong><br>
+          ${item.alternatives
+            .map((a) => `<span class="badge bg-dark me-1 mb-1">${a}</span>`)
+            .join("")}
+        </div>
+        <div class="d-flex gap-1">
+          <button class="btn btn-sm btn-outline-info flex-fill" onclick="loadHistoryItem(${
+            item.id
+          })">
+            📂 Muat
+          </button>
+          <button class="btn btn-sm btn-outline-danger" onclick="deleteHistoryItem(${
+            item.id
+          })" title="Hapus">
+            🗑️
+          </button>
+        </div>
+      </div>
+    `;
+    historyList.appendChild(historyCard);
+  });
+}
+
+function toggleHistory() {
+  const historyPanel = document.getElementById("historyPanel");
+  const isHidden = historyPanel.classList.contains("d-none");
+
+  if (isHidden) {
+    historyPanel.classList.remove("d-none");
+    const overlay = document.createElement("div");
+    overlay.id = "historyOverlay";
+    overlay.className = "history-overlay";
+    overlay.onclick = toggleHistory;
+    document.body.appendChild(overlay);
+  } else {
+    historyPanel.classList.add("d-none");
+    const overlay = document.getElementById("historyOverlay");
+    if (overlay) overlay.remove();
+  }
+}
+
+function clearHistory() {
+  if (
+    confirm(
+      "⚠️ Yakin ingin menghapus SEMUA riwayat?\n\nTindakan ini tidak dapat dibatalkan!"
+    )
+  ) {
+    calculationHistory = [];
+    saveHistoryToStorage();
+    updateHistoryDisplay();
+    showNotification("🗑️ Semua riwayat dihapus");
+  }
+}
+
+function deleteHistoryItem(id) {
+  if (confirm("Hapus item riwayat ini?")) {
+    calculationHistory = calculationHistory.filter((item) => item.id !== id);
+    saveHistoryToStorage();
+    updateHistoryDisplay();
+    showNotification("🗑️ Riwayat dihapus");
+  }
+}
+
+function loadHistoryItem(id) {
+  const item = calculationHistory.find((h) => h.id === id);
+  if (!item) return;
+
+  updateSteps(3);
+
+  const summaryDiv = document.getElementById("summary");
+  summaryDiv.innerHTML = `
+    <div class="alert alert-info fade-in">
+      <strong>📂 Memuat dari Riwayat</strong><br>
+      <small>Tanggal: ${new Date(item.timestamp).toLocaleString(
+        "id-ID"
+      )}</small>
+      ${
+        item.isConsistent
+          ? '<div class="mt-2"><span class="badge bg-success">✓ Hasil Konsisten</span></div>'
+          : '<div class="mt-2"><span class="badge bg-danger">✗ Hasil Tidak Konsisten</span></div>'
+      }
+    </div>
+  `;
+
+  if (item.critWeights) {
+    summaryDiv.innerHTML += `
+      <div class="card p-4 mb-4 fade-in">
+        <h5 class="text-info mb-3">📊 Bobot Kriteria</h5>
+        <div class="table-responsive">
+          <table class="table table-sm table-hover">
+            <thead>
+              <tr>
+                <th>Kriteria</th>
+                <th class="text-end">Bobot</th>
+                <th class="text-end">Persentase</th>
+              </tr>
+            </thead>
+            <tbody>
+              ${item.criteria
+                .map(
+                  (c, i) => `
+                <tr>
+                  <td><strong>${c}</strong></td>
+                  <td class="text-end">${item.critWeights[i].toFixed(4)}</td>
+                  <td class="text-end">
+                    <span class="badge bg-info">${(
+                      item.critWeights[i] * 100
+                    ).toFixed(2)}%</span>
+                  </td>
+                </tr>
+              `
+                )
+                .join("")}
+            </tbody>
+          </table>
+        </div>
+      </div>
+    `;
+  }
+
+  summaryDiv.innerHTML += `
+    <div class="card p-4 fade-in">
+      <h3 class="text-info mb-4">🏆 Hasil Akhir Peringkat</h3>
+      <ul class="list-group list-group-flush">
+  `;
+
+  item.results.forEach((res, index) => {
+    const logoSrc =
+      CLUB_LOGOS[res.name] ||
+      "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ccircle cx='50' cy='50' r='45' fill='%2394a3b8'/%3E%3C/svg%3E";
+    const medals = ["🥇", "🥈", "🥉"];
+    const medal = medals[index] || "🏅";
+    const scorePercent = (res.score * 100).toFixed(2);
+
+    summaryDiv.innerHTML += `
+      <li class="list-group-item">
+        <div>
+          <span class="fw-bold fs-4 me-3">${medal}</span>
+          <img src="${logoSrc}" alt="${res.name}" class="club-logo">
+          <span class="fs-5">${res.name}</span>
+        </div>
+        <span class="badge bg-info fs-6">${scorePercent}%</span>
+      </li>
+    `;
+  });
+
+  summaryDiv.innerHTML += `</ul></div>`;
+
+  drawChart(item.results);
+
+  document.getElementById("resultArea").classList.remove("d-none");
+  document.getElementById("resultArea").scrollIntoView({ behavior: "smooth" });
+
+  toggleHistory();
+  showNotification("📂 Riwayat berhasil dimuat");
+}
+
+function exportHistory() {
+  if (calculationHistory.length === 0) {
+    alert("Tidak ada riwayat untuk diekspor");
+    return;
+  }
+
+  const dataStr = JSON.stringify(calculationHistory, null, 2);
+  const dataBlob = new Blob([dataStr], { type: "application/json" });
+  const url = URL.createObjectURL(dataBlob);
+  const link = document.createElement("a");
+  link.href = url;
+  link.download = `ahp-history-${new Date().toISOString().split("T")[0]}.json`;
+  link.click();
+  URL.revokeObjectURL(url);
+
+  showNotification("💾 Riwayat berhasil diekspor!");
+}
+
+function showNotification(message) {
+  const notification = document.createElement("div");
+  notification.className = "notification";
+  notification.textContent = message;
+  document.body.appendChild(notification);
+
+  setTimeout(() => notification.classList.add("show"), 100);
+  setTimeout(() => {
+    notification.classList.remove("show");
+    setTimeout(() => notification.remove(), 300);
+  }, 3000);
+}
+
+// ============================================
+// UI BUILDING FUNCTIONS
+// ============================================
+
+function updateSteps(activeStep) {
+  for (let i = 1; i <= 3; i++) {
+    const step = document.getElementById(`step${i}`);
+    if (step) {
+      step.classList.remove("active", "completed");
+      if (i < activeStep) step.classList.add("completed");
+      else if (i === activeStep) step.classList.add("active");
+    }
+  }
+}
+
 function buildMatrices() {
   const crits = getLines("criteriaArea");
   const alts = getLines("altArea");
@@ -59,7 +386,6 @@ function buildMatrices() {
 
   updateSteps(2);
 
-  // Kriteria comparison card
   const critCard = document.createElement("div");
   critCard.className = "card p-4 mb-4 fade-in";
   critCard.innerHTML = `
@@ -74,7 +400,6 @@ function buildMatrices() {
   container.appendChild(critCard);
   critCard.querySelector(".comparison-table").appendChild(makeTable(crits));
 
-  // Alternative comparison cards
   crits.forEach((c, idx) => {
     const altCard = document.createElement("div");
     altCard.className = "criterion-card fade-in";
@@ -118,16 +443,41 @@ function makeTable(names) {
   names.forEach((nm) => (html += `<th class="text-center">${nm}</th>`));
   html += "</tr></thead><tbody>";
 
+  const options = [
+    { value: 9, label: "9 - Mutlak lebih penting" },
+    { value: 8, label: "8" },
+    { value: 7, label: "7 - Sangat lebih penting" },
+    { value: 6, label: "6" },
+    { value: 5, label: "5 - Lebih penting" },
+    { value: 4, label: "4" },
+    { value: 3, label: "3 - Sedikit lebih penting" },
+    { value: 2, label: "2" },
+    { value: 1, label: "1 - Sama penting", selected: true },
+    { value: 0.5, label: "1/2" },
+    { value: 0.333, label: "1/3 - Sedikit kurang penting" },
+    { value: 0.25, label: "1/4" },
+    { value: 0.2, label: "1/5 - Kurang penting" },
+    { value: 0.167, label: "1/6" },
+    { value: 0.143, label: "1/7 - Sangat kurang penting" },
+    { value: 0.125, label: "1/8" },
+    { value: 0.111, label: "1/9 - Mutlak kurang penting" },
+  ];
+
   for (let i = 0; i < n; i++) {
     html += `<tr><th>${names[i]}</th>`;
     for (let j = 0; j < n; j++) {
       if (i === j) {
         html +=
-          '<td><input type="number" class="form-control form-control-sm" disabled value="1"></td>';
+          '<td><input type="text" class="form-control form-control-sm text-center" disabled value="1" style="background: rgba(6, 182, 212, 0.1);"></td>';
       } else if (j > i) {
-        html += `<td><input type="number" step="any" min="0.111" max="9" value="1" class="form-control form-control-sm pair" data-i="${i}" data-j="${j}"></td>`;
+        html += `<td><select class="form-select form-select-sm pair" data-i="${i}" data-j="${j}">`;
+        options.forEach((opt) => {
+          const selected = opt.selected ? "selected" : "";
+          html += `<option value="${opt.value}" ${selected}>${opt.label}</option>`;
+        });
+        html += `</select></td>`;
       } else {
-        html += `<td><input type="number" class="form-control form-control-sm recip" disabled data-i="${i}" data-j="${j}" value="1"></td>`;
+        html += `<td><input type="text" class="form-control form-control-sm text-center recip" disabled data-i="${i}" data-j="${j}" value="1" style="background: rgba(148, 163, 184, 0.1);"></td>`;
       }
     }
     html += "</tr>";
@@ -135,13 +485,22 @@ function makeTable(names) {
   html += "</tbody>";
   table.innerHTML = html;
 
-  table.querySelectorAll(".pair").forEach((inp) => {
-    inp.addEventListener("input", (e) => {
+  table.querySelectorAll(".pair").forEach((sel) => {
+    sel.addEventListener("change", (e) => {
       const v = parseFloat(e.target.value) || 1;
       const i = e.target.dataset.i,
         j = e.target.dataset.j;
       const recip = table.querySelector(`.recip[data-i='${j}'][data-j='${i}']`);
-      if (recip) recip.value = (Math.round((1 / v) * 1000) / 1000).toFixed(3);
+      if (recip) {
+        const recipValue = 1 / v;
+        if (recipValue === 1) {
+          recip.value = "1";
+        } else if (recipValue > 1) {
+          recip.value = recipValue.toFixed(0);
+        } else {
+          recip.value = recipValue.toFixed(3);
+        }
+      }
     });
   });
   return table;
@@ -176,7 +535,10 @@ function fillTableInputs(table, values) {
   });
 }
 
-// --- Fungsi Logika AHP ---
+// ============================================
+// AHP CALCULATION FUNCTIONS
+// ============================================
+
 function computeAHP() {
   const allTables = document.querySelectorAll("#critMatrices table");
   const resultArea = document.getElementById("resultArea");
@@ -194,7 +556,6 @@ function computeAHP() {
 
   updateSteps(3);
 
-  // Process criteria
   const critAnalysis = processMatrix(allTables[0], critNames);
   summaryDiv.innerHTML += `
     <div class="card p-4 mb-4 fade-in">
@@ -204,13 +565,12 @@ function computeAHP() {
   `;
 
   if (!critAnalysis.isConsistent) {
-    summaryDiv.innerHTML += `<div class="alert alert-danger fade-in"><strong>⚠️ Peringatan:</strong> Matriks kriteria tidak konsisten (CR > 0.10). Perbaiki nilai perbandingan untuk hasil akurat.</div>`;
+    summaryDiv.innerHTML += `<div class="alert alert-danger fade-in"><strong>⚠️ Peringatan:</strong> Matriks kriteria tidak konsisten (CR > 0.10).</div>`;
     allConsistent = false;
   }
 
   const critWeights = critAnalysis.weights;
 
-  // Process alternatives
   let altWeightsPerCrit = [];
   summaryDiv.innerHTML += `<div class="card p-4 mb-4 fade-in"><h5 class="text-info mb-3">⚽ Analisis Alternatif per Kriteria</h5>`;
 
@@ -227,7 +587,6 @@ function computeAHP() {
   }
   summaryDiv.innerHTML += `</div>`;
 
-  // Final synthesis
   const altWeightsMatrix = transpose(altWeightsPerCrit);
   const finalScores = matrixMultiply(altWeightsMatrix, critWeights);
 
@@ -266,6 +625,14 @@ function computeAHP() {
 
   summaryDiv.innerHTML += `</ul></div>`;
 
+  addToHistory({
+    criteria: critNames,
+    alternatives: altNames,
+    results: finalResults,
+    critWeights: critWeights,
+    isConsistent: allConsistent,
+  });
+
   drawChart(finalResults);
   resultArea.classList.remove("d-none");
   resultArea.scrollIntoView({ behavior: "smooth" });
@@ -275,6 +642,7 @@ function processMatrix(tableElement, names) {
   const n = names.length;
   const matrix = [];
   const rows = tableElement.querySelectorAll("tbody tr");
+
   rows.forEach((tr) => {
     const rowValues = [];
     const cells = tr.querySelectorAll("td");
@@ -327,11 +695,11 @@ function processMatrix(tableElement, names) {
 function renderAnalysis(analysis) {
   let html = `
     <div class="table-responsive">
-      <table class="table table-sm table-hover mb-3" style="font-size: 0.95em;">
+      <table class="table table-sm table-hover mb-3">
         <thead>
           <tr>
             <th>Item</th>
-            <th class="text-end">Bobot (Prioritas)</th>
+            <th class="text-end">Bobot</th>
             <th class="text-end">Persentase</th>
           </tr>
         </thead>
@@ -345,9 +713,7 @@ function renderAnalysis(analysis) {
         <td><strong>${name}</strong></td>
         <td class="text-end">${analysis.weights[i].toFixed(4)}</td>
         <td class="text-end">
-          <span class="badge" style="background: linear-gradient(90deg, rgba(6,182,212,0.3) ${percentage}%, transparent ${percentage}%); color: #06b6d4; min-width: 80px;">
-            ${percentage}%
-          </span>
+          <span class="badge bg-info">${percentage}%</span>
         </td>
       </tr>
     `;
@@ -357,7 +723,7 @@ function renderAnalysis(analysis) {
         </tbody>
       </table>
     </div>
-    <div class="row text-center" style="font-size: 0.9em;">
+    <div class="row text-center">
       <div class="col-md-4">
         <div class="p-3" style="background: rgba(6,182,212,0.1); border-radius: 0.5rem;">
           <div class="text-muted small">λ max</div>
@@ -376,7 +742,7 @@ function renderAnalysis(analysis) {
         <div class="p-3" style="background: ${
           analysis.isConsistent ? "rgba(16,185,129,0.2)" : "rgba(239,68,68,0.2)"
         }; border-radius: 0.5rem;">
-          <div class="text-muted small">CR (Consistency Ratio)</div>
+          <div class="text-muted small">CR</div>
           <div class="fw-bold fs-5" style="color: ${
             analysis.isConsistent ? "#10b981" : "#ef4444"
           };">
@@ -462,7 +828,10 @@ function drawChart(results) {
   });
 }
 
-// --- Helper Utilitas Matematika ---
+// ============================================
+// MATH UTILITY FUNCTIONS
+// ============================================
+
 function matrixMultiply(matrixA, vectorB) {
   const A_rows = matrixA.length;
   const A_cols = matrixA[0].length;
